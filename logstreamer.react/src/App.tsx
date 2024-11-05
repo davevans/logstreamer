@@ -11,6 +11,8 @@ export type NewMessage = {
 function App() {
 
   const [messages, setMessages] = useState<string[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string>();
+  const [connectionStatus, setConnectionStatus] = useState<string>();
 
 
   useEffect(() => {
@@ -23,27 +25,35 @@ function App() {
 
       var requestObj =  {
         nameSpace:"default", 
-        podName:"logproducer",
+        podName:"logproducer-5bdcbc74b-22p4k",
         containerName:"logproducer",
+        previous: true
       }
-
-      
-
-      //setup handler for arriving messages
-      connection.on("ReceiveLogMessages", (newMessages: NewMessage[]) => {
-        
-        console.log("Receiving broadcast...")
-
-        var messageBodies = newMessages.map(x => x.message);
-        setMessages((existingItems) => [...existingItems, ...messageBodies] );
-      })
 
       connection.on("ReceiveLogMessage", (newMessage: NewMessage) => {
         console.log("Receiving log line...")
         setMessages((existingItems) => [...existingItems, newMessage.message] );
       })
 
-      await connection.start()
+      connection.on("ReceiveStatusMessage", m => {
+        setStatusMessage(m);
+      })
+
+      connection.onclose(() => {
+        setConnectionStatus(connection.state);
+      })
+
+      connection.onreconnecting(() => {
+        setConnectionStatus(connection.state);
+      })
+
+      connection.onreconnected(() => {
+        setConnectionStatus(connection.state);
+      })
+
+      await connection.start().then(x => setStatusMessage(""))
+      
+      setConnectionStatus(connection.state);
       setMessages([]);  
       await connection.invoke("GetLogs", requestObj).catch(console.error);
     }
@@ -54,6 +64,8 @@ function App() {
 
   return (
     <div>
+      <div>status: {statusMessage}</div>
+      <div>connection status: {connectionStatus}</div>
       <ul>
         {messages.map((m,i) => <li key={i}>{m}</li>)}
       </ul>

@@ -7,15 +7,14 @@ namespace LogStreamer.Hubs;
 /// </summary>
 public interface ILogClient
 {
-    Task ReceiveLogMessage(LogMessage message);
-    Task ReceiveLogMessages(IEnumerable<LogMessage> messages);
-    
     /// <summary>
-    /// Tells client the container they requested cannot be found.
+    /// Receive log message from server.
     /// </summary>
-    /// <param name="containerName"></param>
+    /// <param name="message"></param>
     /// <returns></returns>
-    Task ContainerNotFound(string? containerName);
+    Task ReceiveLogMessage(LogMessage message);
+    
+    Task ReceiveStatusMessage(string message);
 
-    Task ReceiveServerError(string message);
+    Task ServerError(string errorMessage);
 }

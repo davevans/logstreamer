@@ -32,64 +32,33 @@ public class ContainerLogsWatcher : IContainerLogsWatcher
     /// </summary>
     /// <param name="connectionId"></param>
     /// <param name="stoppingToken"></param>
-    /// <param name="containerLogsRequest"></param>
-    public async Task WatchPodLogs(ContainerLogsRequest containerLogsRequest, string connectionId, CancellationToken stoppingToken)
+    /// <param name="request"></param>
+    public async Task WatchPodLogs(ContainerLogsRequest request, string connectionId, CancellationToken stoppingToken)
     {
         try
         {
-            _logger.Log(LogLevel.Information, "Preparing to watch logs for {0} for {1}.", containerLogsRequest.Key, connectionId);
+            _logger.Log(LogLevel.Information, "Preparing to watch logs for {0} for {1}.", request.Key, connectionId);
             var response = await _kubernetes.CoreV1.ReadNamespacedPodLogWithHttpMessagesAsync(
-                containerLogsRequest.PodName, containerLogsRequest.Namespace, containerLogsRequest.ContainerName,
-                follow: true, cancellationToken: stoppingToken);
-            await using var stream = response.Body;
-            using var reader = new StreamReader(stream);
+                request.PodName, request.Namespace, request.ContainerName,
+                follow: true, 
+                previous: request.Previous,
+                cancellationToken: stoppingToken);
+            using var reader = new StreamReader(response.Body);
             while (!stoppingToken.IsCancellationRequested && await reader.ReadLineAsync(stoppingToken) is { } line)
             {
                 await _logsHubContext.Clients.Client(connectionId).ReceiveLogMessage(new LogMessage(line));
             }
 
-            //todo: what happens if container ends... need abort the connection.
-
             _logger.LogInformation("WatchPodLogs loop ended.");
         }
-        catch (TaskCanceledException canceledException)
+        
+        catch (TaskCanceledException)
         {
-            _logger.LogInformation("Cancelled watch of {0} for connection {1}.", containerLogsRequest.Key, connectionId);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "An error occurred watching {0}", containerLogsRequest.Key);
+            _logger.LogInformation("Cancelled watch of {0} for connection {1}.", request.Key, connectionId);
         }
         finally
         {
-            _logger.Log(LogLevel.Information, "Completed watch of {0} for {1}.", containerLogsRequest.Key, connectionId);
+            _logger.Log(LogLevel.Information, "Completed watch of {0} for {1}.", request.Key, connectionId);
         }
     }
-    
-    /*
-
-    public void AddSubscriber()
-    {
-        _logger.LogInformation("Adding subscriber.");
-        Interlocked.Increment(ref _subscriberCount);
-    }
-
-    /// <summary>
-    /// returns true if subscriber count updated to zero.
-    /// </summary>
-    /// <returns></returns>
-    public async Task<bool> RemoveSubscriber()
-    {
-        _logger.LogInformation("Removing subscriber.");
-        var updated = Interlocked.Decrement(ref _subscriberCount);
-        if (updated == 0)
-        {
-            _logger.LogInformation("No subscribers remaining. Cancelling logs watch on {0}.", containerLogsRequest.Key);
-            await _cancellationTokenSource.CancelAsync();
-            IsWatching = false;
-        }
-
-        return updated == 0;
-    }
-    */
 }

@@ -6,5 +6,5 @@ namespace LogStreamer.Services;
 
 public interface IContainerLogsWatcher
 {
-    Task WatchPodLogs(ContainerLogsRequest containerLogsRequest, string connectionId, CancellationToken stoppingToken);
+    Task WatchPodLogs(ContainerLogsRequest request, string connectionId, CancellationToken stoppingToken);
 }
